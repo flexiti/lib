@@ -64,7 +64,7 @@ rm -f /tmp/create_swap.sh
 EOT
 chmod +x /tmp/create_swap.sh
 
-collect_informations() {
+collect_information() {
 	# get some info about the board
 	CURKERNE=$(uname -r | sed 's/\([0-9]\+\.[0-9]\+\)\..*/\1/')
 	DISTRIBUTION=$(lsb_release -cs)
@@ -90,8 +90,7 @@ collect_informations() {
 			rootfstype=$2
 			;;
 	esac
-	set -e
-} # collect_informations
+} # collect_information
 
 display_alert() {
 	if [ "${DISTRIBUTION}" == "wheezy" ]; then
@@ -103,76 +102,19 @@ display_alert() {
 	fi
 }
 
-autodetect_sunxi() {
-	# This function adjusts script.bin, hostname and cpufreq settings based on 
-	# /run/machine.id so that two OS images (one built for GbE H3 devices like
-	# Orange Pi Plus or Banana Pi M2+ and one for the other H3 devices using 
-	# the internal Ethernet PHY or Banana Pro vs. Pi) can be shipped.
-	#
-	# TODO for mainline kernel: Ship with u-boot debs for all Oranges and install
-	# the right one instead of trying to relink script.bin if detecting mainline
-	# kernel [[ -f /proc/device-tree/model ]]
+adjust_sunxi_settings() {
 
-	# trigger red or blue LED as user feedback
-	echo heartbeat >/sys/class/leds/*red*/trigger 2>/dev/null || echo heartbeat >/sys/class/leds/*blue*/trigger 2>/dev/null
+	# set some mac address to wifi	
+	[[ "$(lsmod | grep 8189fs)" != "" ]] && printf 'options 8189fs rtw_initmac=00:60:2F:%02X:%02X:%02X\n' $[RANDOM%256] $[RANDOM%256] $[RANDOM%256] > /etc/modprobe.d/8189fs.conf
 	
-	# wait for armhwinfo
-	sleep 3
-	read MACHINE </run/machine.id
-	NEWHOSTNAME="$(echo "${MACHINE}" | tr '[:upper:]' '[:lower:]' | sed -e 's/+/plus/' -e 's/\ //g')"
-	ScriptBinName="$(echo "${NEWHOSTNAME}" | sed -e 's/2mini$/2/g' -e 's/plus2$/plus/g').bin"
-	ScriptBinUsed="$(readlink -f "/boot/script.bin")"
-	case ${MACHINE} in
-		"Banana Pi")
-			ln -sf /boot/bin/bananapi.bin /boot/script.bin
-			;;
-		"Orange Pi+"*)
-			if [ "X${ScriptBinName}" != "X${ScriptBinUsed##*/}" ]; then
-				# wrong detection due to disabled Ethernet on 1st boot
-				ln -sf /boot/bin/orangepi2.bin /boot/script.bin
-				NEWHOSTNAME="orangepi2"
-			fi
-			;;
-		"Orange Pi 2"*)
-			ln -sf /boot/bin/orangepi2.bin /boot/script.bin
-			;;
-		"Orange Pi PC")
-			ln -sf /boot/bin/orangepipc.bin /boot/script.bin
-			;;
-		"Orange Pi One")
-			ln -sf /boot/bin/orangepione.bin /boot/script.bin
-			sed -i -e 's/MAX_SPEED=1296000/MAX_SPEED=1200000/' /etc/default/cpufrequtils
-			;;
-		"Orange Pi Lite")
-			ln -sf /boot/bin/orangepilite.bin /boot/script.bin
-			sed -i -e 's/MAX_SPEED=1296000/MAX_SPEED=1200000/' /etc/default/cpufrequtils
-			;;
-		"Banana Pi M2+")
-			if [ "X${ScriptBinName}" != "X${ScriptBinUsed##*/}" ]; then
-				# wrong detection due to disabled Ethernet on 1st boot
-				ln -sf /boot/bin/orangepipc.bin /boot/script.bin
-				NEWHOSTNAME="orangepipc"
-			fi
-			;;
-		"Beelink X2")
-			ln -sf /boot/bin/beelinkx2.bin /boot/script.bin
-			sed -i -e 's/MIN_SPEED=480000/MIN_SPEED=648000/' \
-			-e 's/MAX_SPEED=1296000/MAX_SPEED=1200000/' /etc/default/cpufrequtils
-			;;
-		"NanoPi M1")
-			ln -sf /boot/bin/nanopim1.fex /boot/script.bin
-			sed -i -e 's/MAX_SPEED=1296000/MAX_SPEED=1200000/' /etc/default/cpufrequtils
-			;;
-	esac
-	echo "${NEWHOSTNAME}" >/etc/hostname
-	sed -i -e "s/^::1         localhost.*/::1         localhost ${NEWHOSTNAME} ip6-localhost ip6-loopback/" \
-		-e "s/^127.0.0.1   localhost.*/127.0.0.1   localhost ${NEWHOSTNAME}/" /etc/hosts
+	# trigger red or blue LED as user feedback
+	echo heartbeat >/sys/class/leds/*red*/trigger 2>/dev/null || echo heartbeat >/sys/class/leds/*blue*/trigger 2>/dev/null	
 	[ -f /etc/wicd/wired-settings.conf ] && \
-		sed -i "s/^dhcphostname =.*/dhcphostname = ${NEWHOSTNAME}/" /etc/wicd/wired-settings.conf && \
+		read HOSTNAME </etc/hostname
+		sed -i "s/^dhcphostname =.*/dhcphostname = ${HOSTNAME}/" /etc/wicd/wired-settings.conf && \
 		sed -i "s/wpa_driver =.*/wpa_driver = none/" /etc/wicd/manager-settings.conf
 	[ -f /boot/bin/orangepih3.bin ] && rm /boot/bin/orangepih3.bin
-	touch /var/run/reboot
-} # autodetect_sunxi
+} # adjust_sunxi_settings
 
 do_expand_rootfs() {
 	# get device node for boot media
@@ -239,7 +181,7 @@ do_expand_rootfs() {
 		update-rc.d resize2fs defaults >/dev/null 2>&1 
 	fi
 	return 0
-}
+} # do_expand_rootfs
 
 check_prerequisits() {
 	for needed_tool in fdisk parted partprobe resize2fs ; do
@@ -249,7 +191,7 @@ check_prerequisits() {
 
 main() {
 	check_prerequisits
-	collect_informations
+	collect_information
 
 	if [[ "$rootfstype" == "ext4" && ! -f "/root/.no_rootfs_resize" ]]; then
 		display_alert "Resizing root filesystem."
@@ -263,7 +205,7 @@ main() {
 	/tmp/create_swap.sh &
 
 	if [ "X${HARDWARE}" = "Xsun8i" -o "X${HARDWARE}" = "Xsun7i" ]; then
-		autodetect_sunxi
+		adjust_sunxi_settings
 	fi
 
 	# pine64 temp workaround

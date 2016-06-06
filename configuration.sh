@@ -11,7 +11,7 @@
 
 # common options
 
-REVISION="5.11" # all boards have same revision
+REVISION="5.14$SUBREVISON" # all boards have same revision
 ROOTPWD="1234" # Must be changed @first login
 MAINTAINER="Igor Pecovnik" # deb signature
 MAINTAINERMAIL="igor.pecovnik@****l.com" # deb signature
@@ -77,21 +77,13 @@ esac
 
 # temporary hacks/overrides
 case $LINUXFAMILY in
-	sun4i|sun5i|sun6i|sun7i)
-	# latest stable u-boot v2016.03 broke gmac on sun7i, fixing it for DEFAULT and NEXT
-	[[ $BRANCH == default || $BRANCH == next ]] && BOOTBRANCH='v2016.01'
-	# fix for olimex boards
-	[[ ($BRANCH == default || $BRANCH == next) && ($BOARD == lime* || $BOARD == micro) ]] && BOOTBRANCH='v2016.05-rc1'
-	;;
-
-	sun8i)
-	# fix compilation of sun8i-dev u-boot
-	[[ $BRANCH == dev ]] && BOOTBRANCH='v2016.05-rc1'
-	;;
-
 	pine64)
 	# fix for u-boot needing armhf GCC 4.8
 	UBOOT_COMPILER="arm-linux-gnueabihf-"
+	;;
+	marvell)
+	# fix for u-boot needing arm soft float
+	UBOOT_COMPILER="arm-linux-gnueabi-"
 	;;
 esac
 
@@ -99,7 +91,7 @@ esac
 PACKAGE_LIST="automake bash-completion bc bridge-utils build-essential cmake cpufrequtils \
 	device-tree-compiler dosfstools figlet fbset fping git haveged hdparm hostapd ifenslave-2.6 \
 	iw libtool libwrap0-dev libssl-dev lirc lsof fake-hwclock wpasupplicant libusb-dev libusb-1.0-0-dev psmisc \
-	ntp parted pkg-config pv rfkill rsync sudo curl dialog crda wireless-regdb ncurses-term \
+	ntp parted pkg-config pv rfkill rsync sudo curl dialog crda wireless-regdb ncurses-term python-apt \
 	sysfsutils toilet u-boot-tools unattended-upgrades unzip usbutils vlan wireless-tools libnl-3-dev \
 	console-setup console-data console-common unicode-data openssh-server libmtp-runtime initramfs-tools ca-certificates"
 

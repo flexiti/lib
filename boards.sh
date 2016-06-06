@@ -67,18 +67,18 @@ install_board_specific (){
 		echo "/dev/mmcblk0p1        /boot   vfat    defaults        0       0" >> $CACHEDIR/sdcard/etc/fstab
 	fi
 
+	if [[ $BOARD == cubox-i && $BRANCH == next && -f $CACHEDIR/sdcard/boot/boot.cmd ]] ; then
+		sed -e 's/mmcblk0/mmcblk1/g' -i $CACHEDIR/sdcard/boot/boot.cmd
+		sed -e 's/console=tty1 //g' -i $CACHEDIR/sdcard/boot/boot.cmd
+		sed -e 's/loglevel=1/loglevel=9/g' -i $CACHEDIR/sdcard/boot/boot.cmd
+	fi
+	
 	# convert to uboot compatible script
 	[[ -f $CACHEDIR/sdcard/boot/boot.cmd ]] && \
 		mkimage -C none -A arm -T script -d $CACHEDIR/sdcard/boot/boot.cmd $CACHEDIR/sdcard/boot/boot.scr >> /dev/null
 
 	# initial date for fake-hwclock
 	date -u '+%Y-%m-%d %H:%M:%S' > $CACHEDIR/sdcard/etc/fake-hwclock.data
-
-	# configure MIN / MAX speed for cpufrequtils
-	echo "ENABLE=true" > $CACHEDIR/sdcard/etc/default/cpufrequtils
-	echo "MIN_SPEED=$CPUMIN" >> $CACHEDIR/sdcard/etc/default/cpufrequtils
-	echo "MAX_SPEED=$CPUMAX" >> $CACHEDIR/sdcard/etc/default/cpufrequtils
-	echo "GOVERNOR=$GOVERNOR" >> $CACHEDIR/sdcard/etc/default/cpufrequtils
 
 	# set hostname
 	echo $HOST > $CACHEDIR/sdcard/etc/hostname
